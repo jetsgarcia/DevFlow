@@ -19,6 +19,14 @@ public static class ProjectEndpoints
             .WithTags("Projects")
             .WithOpenApi();
 
+        // GET /api/projects - Get all projects
+        group.MapGet("/", GetAllProjects)
+            .WithName("GetAllProjects")
+            .WithSummary("Get all projects")
+            .WithDescription("Retrieves a list of all projects with their summary information including total sessions and hours.")
+            .Produces<ApiResponse<IEnumerable<ProjectDto>>>(StatusCodes.Status200OK)
+            .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
+
         // POST /api/projects - Create a new project
         group.MapPost("/", CreateProject)
             .WithName("CreateProject")
@@ -28,6 +36,37 @@ public static class ProjectEndpoints
             .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
             .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
             .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
+    }
+
+    /// <summary>
+    /// Gets all projects with their summary information
+    /// </summary>
+    private static async Task<IResult> GetAllProjects(
+        [FromServices] IProjectService projectService,
+        [FromServices] ILogger<Program> logger)
+    {
+        try
+        {
+            var projects = await projectService.GetAllProjectsAsync();
+
+            logger.LogInformation("Retrieved {ProjectCount} projects successfully", projects.Count());
+
+            return Results.Ok(ApiResponse<IEnumerable<ProjectDto>>.SuccessResponse(
+                projects,
+                "Projects retrieved successfully."));
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogError(ex, "Error retrieving projects");
+            return Results.BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error occurred while retrieving projects");
+            return Results.Problem(
+                detail: "An unexpected error occurred while retrieving projects.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
     }
 
     /// <summary>

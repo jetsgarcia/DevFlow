@@ -65,6 +65,29 @@ public class ProjectService : IProjectService
         }
     }
 
+    /// <inheritdoc />
+    public async Task<IEnumerable<ProjectDto>> GetAllProjectsAsync()
+    {
+        _logger.LogInformation("Retrieving all projects");
+
+        try
+        {
+            var projects = await _context.Projects
+                .Include(p => p.Sessions)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+
+            _logger.LogInformation("Successfully retrieved {ProjectCount} projects", projects.Count);
+
+            return projects.Select(MapToProjectDtoWithSessions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while retrieving all projects");
+            throw new InvalidOperationException("An error occurred while retrieving projects. Please try again.", ex);
+        }
+    }
+
     /// <summary>
     /// Maps a Project entity to ProjectDto
     /// </summary>
@@ -79,6 +102,27 @@ public class ProjectService : IProjectService
             UpdatedAt = project.UpdatedAt,
             TotalSessions = 0, // New project has no sessions
             TotalHours = 0
+        };
+    }
+
+    /// <summary>
+    /// Maps a Project entity with Sessions to ProjectDto including session statistics
+    /// </summary>
+    private static ProjectDto MapToProjectDtoWithSessions(Project project)
+    {
+        var totalHours = project.Sessions
+            .Where(s => s.EndTime.HasValue)
+            .Sum(s => (s.EndTime!.Value - s.StartTime).TotalHours);
+
+        return new ProjectDto
+        {
+            Id = project.Id,
+            Name = project.Name,
+            Description = project.Description,
+            CreatedAt = project.CreatedAt,
+            UpdatedAt = project.UpdatedAt,
+            TotalSessions = project.Sessions.Count,
+            TotalHours = (int)Math.Round(totalHours)
         };
     }
 }
