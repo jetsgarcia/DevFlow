@@ -30,4 +30,18 @@ public interface ISessionService
     /// <returns>A list of all sessions associated with the project</returns>
     /// <exception cref="InvalidOperationException">Thrown when the project is not found</exception>
     Task<List<SessionDto>> GetProjectSessionsAsync(int projectId);
+
+    /// <summary>
+    /// Checks if a project has an active session and retrieves its details
+    /// </summary>
+    /// <param name="projectId">The ID of the project to check for active sessions</param>
+    /// <returns>The active session details if one exists, otherwise null</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the project is not found</exception>
+    Task<ActiveSessionDto?> GetActiveSessionAsync(int projectId);
+
+    /// <summary>
+    /// Retrieves the currently active session across all projects (if any exists)
+    /// </summary>
+    /// <returns>The active session details if one exists, otherwise null</returns>
+    Task<ActiveSessionDto?> GetAnyActiveSessionAsync();
 }

@@ -23,7 +23,7 @@ public static class SessionEndpoints
         group.MapPost("/start", StartSession)
             .WithName("StartSession")
             .WithSummary("Start a new coding session")
-            .WithDescription("Starts a new coding session associated with a specific project. Only one active session per project is allowed at a time.")
+            .WithDescription("Starts a new coding session associated with a specific project. Only one active session is allowed at a time across all projects. If another session is already active (even on a different project), a 409 Conflict will be returned.")
             .Produces<ApiResponse<SessionDto>>(StatusCodes.Status201Created)
             .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
             .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
@@ -49,6 +49,24 @@ public static class SessionEndpoints
             .Produces<ApiResponse<List<SessionDto>>>(StatusCodes.Status200OK)
             .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
             .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
+            .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
+
+        // GET /api/sessions/active/{projectId} - Check for active session
+        group.MapGet("/active/{projectId:int}", GetActiveSession)
+            .WithName("GetActiveSession")
+            .WithSummary("Check if a project has an active session")
+            .WithDescription("Checks if a project currently has an active session and returns its details if found. Returns null if no active session exists. Useful for preventing duplicate session starts.")
+            .Produces<ApiResponse<ActiveSessionDto?>>(StatusCodes.Status200OK)
+            .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
+            .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
+            .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
+
+        // GET /api/sessions/active - Get any active session across all projects
+        group.MapGet("/active", GetAnyActiveSession)
+            .WithName("GetAnyActiveSession")
+            .WithSummary("Get the current active session across all projects")
+            .WithDescription("Retrieves the currently active session if one exists, regardless of which project it belongs to. Since a user can only work on one project at a time, this returns the single active session or null.")
+            .Produces<ApiResponse<ActiveSessionDto?>>(StatusCodes.Status200OK)
             .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
     }
 
@@ -85,7 +103,7 @@ public static class SessionEndpoints
             logger.LogWarning("Session start failed - project not found: {Message}", ex.Message);
             return Results.NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("already has an active session"))
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already has an active session") || ex.Message.Contains("You already have an active session"))
         {
             logger.LogWarning("Session start failed - active session exists: {Message}", ex.Message);
             return Results.Conflict(ApiResponse<object>.ErrorResponse(ex.Message));
@@ -199,6 +217,98 @@ public static class SessionEndpoints
             logger.LogError(ex, "Unexpected error occurred while retrieving project sessions");
             return Results.Problem(
                 detail: "An unexpected error occurred while retrieving project sessions.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Checks if a project has an active session
+    /// </summary>
+    private static async Task<IResult> GetActiveSession(
+        [FromRoute] int projectId,
+        [FromServices] ISessionService sessionService,
+        [FromServices] ILogger<Program> logger)
+    {
+        try
+        {
+            // Validate the project ID
+            if (projectId <= 0)
+            {
+                return Results.BadRequest(ApiResponse<object>.ErrorResponse(
+                    "Invalid project ID. ProjectId must be a positive integer."));
+            }
+
+            var activeSession = await sessionService.GetActiveSessionAsync(projectId);
+
+            if (activeSession == null)
+            {
+                logger.LogInformation("No active session found for ProjectId={ProjectId}", projectId);
+                return Results.Ok(ApiResponse<ActiveSessionDto?>.SuccessResponse(
+                    null,
+                    "No active session found for this project."));
+            }
+
+            logger.LogInformation(
+                "Active session found: SessionId={SessionId} for ProjectId={ProjectId}",
+                activeSession.Id,
+                projectId);
+
+            return Results.Ok(ApiResponse<ActiveSessionDto?>.SuccessResponse(
+                activeSession,
+                "Active session found."));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            logger.LogWarning("Get active session failed - project not found: {Message}", ex.Message);
+            return Results.NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogError(ex, "Error checking for active session");
+            return Results.BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error occurred while checking for active session");
+            return Results.Problem(
+                detail: "An unexpected error occurred while checking for active session.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Gets any active session across all projects
+    /// </summary>
+    private static async Task<IResult> GetAnyActiveSession(
+        [FromServices] ISessionService sessionService,
+        [FromServices] ILogger<Program> logger)
+    {
+        try
+        {
+            var activeSession = await sessionService.GetAnyActiveSessionAsync();
+
+            if (activeSession == null)
+            {
+                logger.LogInformation("No active session found across all projects");
+                return Results.Ok(ApiResponse<ActiveSessionDto?>.SuccessResponse(
+                    null,
+                    "No active session found."));
+            }
+
+            logger.LogInformation(
+                "Active session found: SessionId={SessionId} for ProjectId={ProjectId}",
+                activeSession.Id,
+                activeSession.ProjectId);
+
+            return Results.Ok(ApiResponse<ActiveSessionDto?>.SuccessResponse(
+                activeSession,
+                "Active session found."));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error occurred while checking for any active session");
+            return Results.Problem(
+                detail: "An unexpected error occurred while checking for active session.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }

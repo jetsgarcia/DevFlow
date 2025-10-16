@@ -30,25 +30,43 @@ public class SessionService : ISessionService
 
         _logger.LogInformation("Starting new session for ProjectId: {ProjectId}", startSessionDto.ProjectId);
 
+        // Check if there's ANY active session across all projects (user can only work on one project at a time)
+        var anyActiveSession = await _context.Sessions
+            .Include(s => s.Project)
+            .FirstOrDefaultAsync(s => s.IsActive);
+
+        if (anyActiveSession != null)
+        {
+            // Check if it's for the same project
+            if (anyActiveSession.ProjectId == startSessionDto.ProjectId)
+            {
+                _logger.LogWarning(
+                    "Session start failed: Project {ProjectId} already has an active session (SessionId: {SessionId})",
+                    startSessionDto.ProjectId, 
+                    anyActiveSession.Id);
+                throw new InvalidOperationException(
+                    $"Project '{anyActiveSession.Project.Name}' already has an active session. Please stop the current session before starting a new one.");
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Session start failed: Another project ({ProjectId}) already has an active session (SessionId: {SessionId}). Cannot start session for ProjectId: {RequestedProjectId}",
+                    anyActiveSession.ProjectId,
+                    anyActiveSession.Id,
+                    startSessionDto.ProjectId);
+                throw new InvalidOperationException(
+                    $"You already have an active session on project '{anyActiveSession.Project.Name}'. You can only work on one project at a time. Please stop the current session before starting a new one.");
+            }
+        }
+
         // Verify that the project exists
         var project = await _context.Projects
-            .Include(p => p.Sessions.Where(s => s.IsActive))
             .FirstOrDefaultAsync(p => p.Id == startSessionDto.ProjectId);
 
         if (project == null)
         {
             _logger.LogWarning("Session start failed: Project with ID {ProjectId} not found", startSessionDto.ProjectId);
             throw new InvalidOperationException($"Project with ID {startSessionDto.ProjectId} not found.");
-        }
-
-        // Check if there's already an active session for this project
-        var activeSession = project.Sessions.FirstOrDefault(s => s.IsActive);
-        if (activeSession != null)
-        {
-            _logger.LogWarning("Session start failed: Project {ProjectId} already has an active session (SessionId: {SessionId})", 
-                startSessionDto.ProjectId, activeSession.Id);
-            throw new InvalidOperationException(
-                $"Project '{project.Name}' already has an active session. Please stop the current session before starting a new one.");
         }
 
         // Create new session entity
@@ -167,6 +185,65 @@ public class SessionService : ISessionService
         return sessions.Select(s => MapToSessionDto(s, project.Name)).ToList();
     }
 
+    /// <inheritdoc />
+    public async Task<ActiveSessionDto?> GetActiveSessionAsync(int projectId)
+    {
+        _logger.LogInformation("Checking for active session on ProjectId: {ProjectId}", projectId);
+
+        // Verify that the project exists
+        var project = await _context.Projects
+            .Include(p => p.Sessions.Where(s => s.IsActive))
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+
+        if (project == null)
+        {
+            _logger.LogWarning("Get active session failed: Project with ID {ProjectId} not found", projectId);
+            throw new InvalidOperationException($"Project with ID {projectId} not found.");
+        }
+
+        // Get the active session if one exists
+        var activeSession = project.Sessions.FirstOrDefault(s => s.IsActive);
+
+        if (activeSession == null)
+        {
+            _logger.LogInformation("No active session found for ProjectId: {ProjectId}", projectId);
+            return null;
+        }
+
+        _logger.LogInformation(
+            "Active session found: SessionId={SessionId} for ProjectId={ProjectId}",
+            activeSession.Id,
+            projectId);
+
+        // Map to ActiveSessionDto
+        return MapToActiveSessionDto(activeSession, project.Name);
+    }
+
+    /// <inheritdoc />
+    public async Task<ActiveSessionDto?> GetAnyActiveSessionAsync()
+    {
+        _logger.LogInformation("Checking for any active session across all projects");
+
+        // Get any active session from any project
+        var activeSession = await _context.Sessions
+            .Include(s => s.Project)
+            .FirstOrDefaultAsync(s => s.IsActive);
+
+        if (activeSession == null)
+        {
+            _logger.LogInformation("No active session found across all projects");
+            return null;
+        }
+
+        _logger.LogInformation(
+            "Active session found: SessionId={SessionId} for ProjectId={ProjectId}",
+            activeSession.Id,
+            activeSession.ProjectId);
+
+        // Map to ActiveSessionDto
+        return MapToActiveSessionDto(activeSession, activeSession.Project.Name);
+    }
+
     /// <summary>
     /// Maps a Session entity to SessionDto
     /// </summary>
@@ -183,6 +260,23 @@ public class SessionService : ISessionService
             IsActive = session.IsActive,
             IsAutoStopped = session.IsAutoStopped,
             CreatedAt = session.CreatedAt
+        };
+    }
+
+    /// <summary>
+    /// Maps a Session entity to ActiveSessionDto
+    /// </summary>
+    private static ActiveSessionDto MapToActiveSessionDto(Session session, string projectName)
+    {
+        var elapsedSeconds = (int)(DateTimeHelper.Now - session.StartTime).TotalSeconds;
+
+        return new ActiveSessionDto
+        {
+            Id = session.Id,
+            ProjectId = session.ProjectId,
+            ProjectName = projectName,
+            StartTime = session.StartTime,
+            ElapsedSeconds = elapsedSeconds
         };
     }
 }
