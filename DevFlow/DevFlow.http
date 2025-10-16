@@ -1,0 +1,6 @@
+@DevFlow_HostAddress = http://localhost:5289
+
+GET {{DevFlow_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
