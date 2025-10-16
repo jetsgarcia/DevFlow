@@ -27,4 +27,11 @@ public interface IProjectService
     /// <param name="updateProjectDto">The updated project details</param>
     /// <returns>The updated project details</returns>
     Task<ProjectDto> UpdateProjectAsync(int id, UpdateProjectDto updateProjectDto);
+
+    /// <summary>
+    /// Deletes an existing project and all associated sessions
+    /// </summary>
+    /// <param name="id">The ID of the project to delete</param>
+    /// <returns>A task representing the asynchronous operation</returns>
+    Task DeleteProjectAsync(int id);
 }

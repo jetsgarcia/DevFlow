@@ -47,6 +47,16 @@ public static class ProjectEndpoints
             .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
             .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
+
+        // DELETE /api/projects/{id} - Delete an existing project
+        group.MapDelete("/{id}", DeleteProject)
+            .WithName("DeleteProject")
+            .WithSummary("Delete an existing project")
+            .WithDescription("Deletes an existing project and all its associated sessions permanently. This action cannot be undone.")
+            .Produces<ApiResponse>(StatusCodes.Status200OK)
+            .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
+            .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
+            .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
     }
 
     /// <summary>
@@ -181,6 +191,49 @@ public static class ProjectEndpoints
             logger.LogError(ex, "Unexpected error occurred while updating project");
             return Results.Problem(
                 detail: "An unexpected error occurred while updating the project.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Deletes an existing project
+    /// </summary>
+    private static async Task<IResult> DeleteProject(
+        [FromRoute] int id,
+        [FromServices] IProjectService projectService,
+        [FromServices] ILogger<Program> logger)
+    {
+        try
+        {
+            // Validate ID
+            if (id <= 0)
+            {
+                return Results.BadRequest(ApiResponse<object>.ErrorResponse(
+                    "Invalid project ID."));
+            }
+
+            await projectService.DeleteProjectAsync(id);
+
+            logger.LogInformation("Project deleted successfully: {ProjectId}", id);
+
+            return Results.Ok(ApiResponse.SuccessResponse(
+                "Project deleted successfully."));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            logger.LogWarning("Project deletion failed - not found: {Message}", ex.Message);
+            return Results.NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogError(ex, "Error deleting project");
+            return Results.BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error occurred while deleting project");
+            return Results.Problem(
+                detail: "An unexpected error occurred while deleting the project.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }

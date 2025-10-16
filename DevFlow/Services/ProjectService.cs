@@ -144,6 +144,43 @@ public class ProjectService : IProjectService
         }
     }
 
+    /// <inheritdoc />
+    public async Task DeleteProjectAsync(int id)
+    {
+        if (id <= 0)
+        {
+            throw new ArgumentException("Invalid project ID.", nameof(id));
+        }
+
+        _logger.LogInformation("Deleting project with ID: {ProjectId}", id);
+
+        // Find the existing project
+        var project = await _context.Projects
+            .Include(p => p.Sessions)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (project == null)
+        {
+            _logger.LogWarning("Delete failed: Project with ID {ProjectId} not found", id);
+            throw new InvalidOperationException($"Project with ID {id} not found.");
+        }
+
+        try
+        {
+            // Remove the project (cascade delete will handle sessions)
+            _context.Projects.Remove(project);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully deleted project with ID: {ProjectId} and {SessionCount} associated sessions", 
+                id, project.Sessions.Count);
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database error occurred while deleting project with ID: {ProjectId}", id);
+            throw new InvalidOperationException("An error occurred while deleting the project. Please try again.", ex);
+        }
+    }
+
     /// <summary>
     /// Maps a Project entity to ProjectDto
     /// </summary>
