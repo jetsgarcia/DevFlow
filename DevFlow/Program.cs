@@ -16,6 +16,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 // Register application services
 builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<ISessionService, SessionService>();
 
 var app = builder.Build();
 
@@ -30,5 +31,6 @@ app.UseHttpsRedirection();
 
 // Map API endpoints
 app.MapProjectEndpoints();
+app.MapSessionEndpoints();
 
 app.Run();
