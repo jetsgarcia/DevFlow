@@ -29,6 +29,16 @@ public class SessionDto
 }
 
 /// <summary>
+/// DTO for ending a session
+/// </summary>
+public class EndSessionDto
+{
+    [Required(ErrorMessage = "SessionId is required")]
+    [Range(1, int.MaxValue, ErrorMessage = "SessionId must be a positive integer")]
+    public int SessionId { get; set; }
+}
+
+/// <summary>
 /// DTO for active session response
 /// </summary>
 public class ActiveSessionDto

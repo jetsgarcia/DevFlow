@@ -29,6 +29,17 @@ public static class SessionEndpoints
             .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
             .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
+
+        // POST /api/sessions/end - End an active coding session
+        group.MapPost("/end", EndSession)
+            .WithName("EndSession")
+            .WithSummary("End an active coding session")
+            .WithDescription("Ends an active coding session manually. Calculates the session duration and marks it as inactive.")
+            .Produces<ApiResponse<SessionDto>>(StatusCodes.Status200OK)
+            .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
+            .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
+            .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
+            .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
     }
 
     /// <summary>
@@ -79,6 +90,58 @@ public static class SessionEndpoints
             logger.LogError(ex, "Unexpected error occurred while starting session");
             return Results.Problem(
                 detail: "An unexpected error occurred while starting the session.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Ends an active coding session manually
+    /// </summary>
+    private static async Task<IResult> EndSession(
+        [FromBody] EndSessionDto endSessionDto,
+        [FromServices] ISessionService sessionService,
+        [FromServices] ILogger<Program> logger)
+    {
+        try
+        {
+            // Validate the model
+            if (endSessionDto.SessionId <= 0)
+            {
+                return Results.BadRequest(ApiResponse<object>.ErrorResponse(
+                    "Invalid session ID. SessionId must be a positive integer."));
+            }
+
+            var session = await sessionService.EndSessionAsync(endSessionDto);
+
+            logger.LogInformation(
+                "Session ended successfully: SessionId={SessionId}, Duration={Duration} seconds",
+                session.Id,
+                session.DurationSeconds);
+
+            return Results.Ok(ApiResponse<SessionDto>.SuccessResponse(
+                session,
+                "Coding session ended successfully."));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            logger.LogWarning("Session end failed - session not found: {Message}", ex.Message);
+            return Results.NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already been ended"))
+        {
+            logger.LogWarning("Session end failed - session already ended: {Message}", ex.Message);
+            return Results.Conflict(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogError(ex, "Error ending session");
+            return Results.BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error occurred while ending session");
+            return Results.Problem(
+                detail: "An unexpected error occurred while ending the session.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }

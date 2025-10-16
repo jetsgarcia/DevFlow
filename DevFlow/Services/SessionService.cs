@@ -81,6 +81,61 @@ public class SessionService : ISessionService
         }
     }
 
+    /// <inheritdoc />
+    public async Task<SessionDto> EndSessionAsync(EndSessionDto endSessionDto)
+    {
+        if (endSessionDto == null)
+        {
+            throw new ArgumentNullException(nameof(endSessionDto));
+        }
+
+        _logger.LogInformation("Ending session with SessionId: {SessionId}", endSessionDto.SessionId);
+
+        // Retrieve the session with project information
+        var session = await _context.Sessions
+            .Include(s => s.Project)
+            .FirstOrDefaultAsync(s => s.Id == endSessionDto.SessionId);
+
+        if (session == null)
+        {
+            _logger.LogWarning("Session end failed: Session with ID {SessionId} not found", endSessionDto.SessionId);
+            throw new InvalidOperationException($"Session with ID {endSessionDto.SessionId} not found.");
+        }
+
+        // Check if the session is already ended
+        if (!session.IsActive)
+        {
+            _logger.LogWarning("Session end failed: Session {SessionId} is already ended", endSessionDto.SessionId);
+            throw new InvalidOperationException($"Session with ID {endSessionDto.SessionId} has already been ended.");
+        }
+
+        // End the session
+        session.EndTime = DateTime.UtcNow;
+        session.IsActive = false;
+        session.DurationSeconds = (int)(session.EndTime.Value - session.StartTime).TotalSeconds;
+        session.IsAutoStopped = false; // Manually stopped
+
+        try
+        {
+            _context.Sessions.Update(session);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Successfully ended session with ID: {SessionId}. Duration: {Duration} seconds",
+                session.Id,
+                session.DurationSeconds);
+
+            // Map to DTO
+            return MapToSessionDto(session, session.Project.Name);
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database error occurred while ending session with SessionId: {SessionId}",
+                endSessionDto.SessionId);
+            throw new InvalidOperationException("An error occurred while ending the session. Please try again.", ex);
+        }
+    }
+
     /// <summary>
     /// Maps a Session entity to SessionDto
     /// </summary>
