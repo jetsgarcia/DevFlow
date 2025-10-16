@@ -3,6 +3,11 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+# User-specific files
+devflow.db
+devflow.db-shm
+devflow.db-wal
+
 # dotenv files
 .env
 
