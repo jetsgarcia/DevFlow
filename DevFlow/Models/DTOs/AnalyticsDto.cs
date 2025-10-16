@@ -85,3 +85,70 @@ public enum TimeRangeType
     LastMonth,
     Custom
 }
+
+/// <summary>
+/// DTO for average session duration across all projects
+/// </summary>
+public class AverageSessionDurationDto
+{
+    /// <summary>
+    /// Average session duration in seconds across all projects (no decimal)
+    /// </summary>
+    public int AverageDurationSeconds { get; set; }
+
+    /// <summary>
+    /// Total number of completed sessions included in the calculation
+    /// </summary>
+    public int TotalCompletedSessions { get; set; }
+}
+
+/// <summary>
+/// DTO for comprehensive session statistics across all projects
+/// </summary>
+public class SessionStatisticsDto
+{
+    /// <summary>
+    /// Average session duration in seconds across all projects (no decimal)
+    /// </summary>
+    public int AverageDurationSeconds { get; set; }
+
+    /// <summary>
+    /// Total number of completed sessions
+    /// </summary>
+    public int TotalCompletedSessions { get; set; }
+
+    /// <summary>
+    /// Total duration of all completed sessions in seconds
+    /// </summary>
+    public int TotalSeconds { get; set; }
+
+    /// <summary>
+    /// Longest session duration in seconds
+    /// </summary>
+    public int? LongestSessionSeconds { get; set; }
+
+    /// <summary>
+    /// Shortest session duration in seconds
+    /// </summary>
+    public int? ShortestSessionSeconds { get; set; }
+
+    /// <summary>
+    /// Total number of active sessions (should be 0 or 1)
+    /// </summary>
+    public int ActiveSessions { get; set; }
+
+    /// <summary>
+    /// Date of the first session ever recorded
+    /// </summary>
+    public DateTime? FirstSessionDate { get; set; }
+
+    /// <summary>
+    /// Date of the most recent session
+    /// </summary>
+    public DateTime? LastSessionDate { get; set; }
+
+    /// <summary>
+    /// Number of unique projects with sessions
+    /// </summary>
+    public int TotalProjectsWithSessions { get; set; }
+}

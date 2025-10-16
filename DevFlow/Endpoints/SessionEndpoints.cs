@@ -68,6 +68,22 @@ public static class SessionEndpoints
             .WithDescription("Retrieves the currently active session if one exists, regardless of which project it belongs to. Since a user can only work on one project at a time, this returns the single active session or null.")
             .Produces<ApiResponse<ActiveSessionDto?>>(StatusCodes.Status200OK)
             .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
+
+        // GET /api/sessions/average-duration - Get average session duration across all projects
+        group.MapGet("/average-duration", GetAverageSessionDuration)
+            .WithName("GetAverageSessionDuration")
+            .WithSummary("Get average session duration across all projects")
+            .WithDescription("Calculates and returns the average duration of all completed sessions regardless of project. Includes statistics such as total completed sessions and total hours worked.")
+            .Produces<ApiResponse<AverageSessionDurationDto>>(StatusCodes.Status200OK)
+            .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
+
+        // GET /api/sessions/statistics - Get comprehensive session statistics
+        group.MapGet("/statistics", GetSessionStatistics)
+            .WithName("GetSessionStatistics")
+            .WithSummary("Get comprehensive session statistics across all projects")
+            .WithDescription("Retrieves detailed statistics for all sessions including averages, totals, longest/shortest sessions, active sessions count, date ranges, and number of projects tracked.")
+            .Produces<ApiResponse<SessionStatisticsDto>>(StatusCodes.Status200OK)
+            .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
     }
 
     /// <summary>
@@ -309,6 +325,73 @@ public static class SessionEndpoints
             logger.LogError(ex, "Unexpected error occurred while checking for any active session");
             return Results.Problem(
                 detail: "An unexpected error occurred while checking for active session.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Gets the average session duration across all projects
+    /// </summary>
+    private static async Task<IResult> GetAverageSessionDuration(
+        [FromServices] ISessionService sessionService,
+        [FromServices] ILogger<Program> logger)
+    {
+        try
+        {
+            var averageDuration = await sessionService.GetAverageSessionDurationAsync();
+
+            logger.LogInformation(
+                "Successfully calculated average session duration: {AverageSeconds} seconds across {TotalSessions} sessions",
+                averageDuration.AverageDurationSeconds,
+                averageDuration.TotalCompletedSessions);
+
+            var message = averageDuration.TotalCompletedSessions > 0
+                ? $"Average session duration calculated from {averageDuration.TotalCompletedSessions} completed session(s)."
+                : "No completed sessions found yet. Start tracking your sessions to see statistics.";
+
+            return Results.Ok(ApiResponse<AverageSessionDurationDto>.SuccessResponse(
+                averageDuration,
+                message));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error occurred while calculating average session duration");
+            return Results.Problem(
+                detail: "An unexpected error occurred while calculating average session duration.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Gets comprehensive session statistics across all projects
+    /// </summary>
+    private static async Task<IResult> GetSessionStatistics(
+        [FromServices] ISessionService sessionService,
+        [FromServices] ILogger<Program> logger)
+    {
+        try
+        {
+            var statistics = await sessionService.GetSessionStatisticsAsync();
+
+            logger.LogInformation(
+                "Successfully retrieved session statistics: {TotalSessions} completed, {Average} seconds average, {Active} active",
+                statistics.TotalCompletedSessions,
+                statistics.AverageDurationSeconds,
+                statistics.ActiveSessions);
+
+            var message = statistics.TotalCompletedSessions > 0
+                ? $"Statistics calculated from {statistics.TotalCompletedSessions} completed session(s) across {statistics.TotalProjectsWithSessions} project(s)."
+                : "No sessions found yet. Start tracking your sessions to see statistics.";
+
+            return Results.Ok(ApiResponse<SessionStatisticsDto>.SuccessResponse(
+                statistics,
+                message));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error occurred while retrieving session statistics");
+            return Results.Problem(
+                detail: "An unexpected error occurred while retrieving session statistics.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }

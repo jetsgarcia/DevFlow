@@ -244,6 +244,108 @@ public class SessionService : ISessionService
         return MapToActiveSessionDto(activeSession, activeSession.Project.Name);
     }
 
+    /// <inheritdoc />
+    public async Task<AverageSessionDurationDto> GetAverageSessionDurationAsync()
+    {
+        _logger.LogInformation("Calculating average session duration across all projects");
+
+        // Retrieve all completed sessions (sessions that have been ended and have a duration)
+        var completedSessions = await _context.Sessions
+            .Where(s => !s.IsActive && s.DurationSeconds.HasValue)
+            .ToListAsync();
+
+        var totalCompletedSessions = completedSessions.Count;
+
+        if (totalCompletedSessions == 0)
+        {
+            _logger.LogInformation("No completed sessions found. Returning zero statistics.");
+            return new AverageSessionDurationDto
+            {
+                AverageDurationSeconds = 0,
+                TotalCompletedSessions = 0
+            };
+        }
+
+        // Calculate total duration in seconds
+        var totalDurationSeconds = completedSessions.Sum(s => s.DurationSeconds!.Value);
+
+        // Calculate average
+        var averageDurationSeconds = totalDurationSeconds / (double)totalCompletedSessions;
+
+        _logger.LogInformation(
+            "Successfully calculated average session duration. Total sessions: {TotalSessions}, Average: {AverageSeconds} seconds",
+            totalCompletedSessions,
+            (int)Math.Round(averageDurationSeconds));
+
+        return new AverageSessionDurationDto
+        {
+            AverageDurationSeconds = (int)Math.Round(averageDurationSeconds),
+            TotalCompletedSessions = totalCompletedSessions
+        };
+    }
+
+    /// <inheritdoc />
+    public async Task<SessionStatisticsDto> GetSessionStatisticsAsync()
+    {
+        _logger.LogInformation("Retrieving comprehensive session statistics across all projects");
+
+        // Retrieve all sessions
+        var allSessions = await _context.Sessions.ToListAsync();
+        
+        var completedSessions = allSessions
+            .Where(s => !s.IsActive && s.DurationSeconds.HasValue)
+            .ToList();
+
+        var activeSessions = allSessions.Count(s => s.IsActive);
+        var totalCompletedSessions = completedSessions.Count;
+
+        // If no completed sessions, return zero statistics
+        if (totalCompletedSessions == 0)
+        {
+            _logger.LogInformation("No completed sessions found. Returning zero statistics.");
+            return new SessionStatisticsDto
+            {
+                AverageDurationSeconds = 0,
+                TotalCompletedSessions = 0,
+                TotalSeconds = 0,
+                LongestSessionSeconds = null,
+                ShortestSessionSeconds = null,
+                ActiveSessions = activeSessions,
+                FirstSessionDate = null,
+                LastSessionDate = null,
+                TotalProjectsWithSessions = 0
+            };
+        }
+
+        // Calculate statistics
+        var totalDurationSeconds = completedSessions.Sum(s => s.DurationSeconds!.Value);
+        var averageDurationSeconds = totalDurationSeconds / (double)totalCompletedSessions;
+        var longestSessionSeconds = completedSessions.Max(s => s.DurationSeconds!.Value);
+        var shortestSessionSeconds = completedSessions.Min(s => s.DurationSeconds!.Value);
+        var firstSessionDate = allSessions.Min(s => s.StartTime);
+        var lastSessionDate = allSessions.Max(s => s.StartTime);
+        var totalProjectsWithSessions = allSessions.Select(s => s.ProjectId).Distinct().Count();
+
+        _logger.LogInformation(
+            "Successfully calculated session statistics. Total: {Total} completed sessions, Average: {Average} seconds, Active: {Active}",
+            totalCompletedSessions,
+            (int)Math.Round(averageDurationSeconds),
+            activeSessions);
+
+        return new SessionStatisticsDto
+        {
+            AverageDurationSeconds = (int)Math.Round(averageDurationSeconds),
+            TotalCompletedSessions = totalCompletedSessions,
+            TotalSeconds = totalDurationSeconds,
+            LongestSessionSeconds = longestSessionSeconds,
+            ShortestSessionSeconds = shortestSessionSeconds,
+            ActiveSessions = activeSessions,
+            FirstSessionDate = firstSessionDate,
+            LastSessionDate = lastSessionDate,
+            TotalProjectsWithSessions = totalProjectsWithSessions
+        };
+    }
+
     /// <summary>
     /// Maps a Session entity to SessionDto
     /// </summary>

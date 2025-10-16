@@ -44,4 +44,16 @@ public interface ISessionService
     /// </summary>
     /// <returns>The active session details if one exists, otherwise null</returns>
     Task<ActiveSessionDto?> GetAnyActiveSessionAsync();
+
+    /// <summary>
+    /// Calculates the average duration of all completed sessions across all projects
+    /// </summary>
+    /// <returns>Average session duration statistics including total completed sessions</returns>
+    Task<AverageSessionDurationDto> GetAverageSessionDurationAsync();
+
+    /// <summary>
+    /// Retrieves comprehensive session statistics across all projects
+    /// </summary>
+    /// <returns>Detailed statistics including averages, totals, longest/shortest sessions, and more</returns>
+    Task<SessionStatisticsDto> GetSessionStatisticsAsync();
 }
