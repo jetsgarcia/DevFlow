@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using DevFlow.Utilities;
 
 namespace DevFlow.Models;
 
@@ -16,7 +17,7 @@ public class Session
     public int ProjectId { get; set; }
 
     [Required]
-    public DateTime StartTime { get; set; } = DateTime.UtcNow;
+    public DateTime StartTime { get; set; } = DateTimeHelper.Now;
 
     public DateTime? EndTime { get; set; }
 
@@ -36,7 +37,7 @@ public class Session
     /// </summary>
     public bool IsAutoStopped { get; set; } = false;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = DateTimeHelper.Now;
 
     // Navigation property
     [ForeignKey(nameof(ProjectId))]

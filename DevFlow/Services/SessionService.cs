@@ -1,6 +1,7 @@
 using DevFlow.Data;
 using DevFlow.Models;
 using DevFlow.Models.DTOs;
+using DevFlow.Utilities;
 using Microsoft.EntityFrameworkCore;
 
 namespace DevFlow.Services;
@@ -54,12 +55,12 @@ public class SessionService : ISessionService
         var session = new Session
         {
             ProjectId = startSessionDto.ProjectId,
-            StartTime = DateTime.UtcNow,
+            StartTime = DateTimeHelper.Now,
             IsActive = true,
             IsAutoStopped = false,
             EndTime = null,
             DurationSeconds = null,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTimeHelper.Now
         };
 
         try
@@ -110,7 +111,7 @@ public class SessionService : ISessionService
         }
 
         // End the session
-        session.EndTime = DateTime.UtcNow;
+        session.EndTime = DateTimeHelper.Now;
         session.IsActive = false;
         session.DurationSeconds = (int)(session.EndTime.Value - session.StartTime).TotalSeconds;
         session.IsAutoStopped = false; // Manually stopped

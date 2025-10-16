@@ -1,6 +1,7 @@
 using DevFlow.Data;
 using DevFlow.Models;
 using DevFlow.Models.DTOs;
+using DevFlow.Utilities;
 using Microsoft.EntityFrameworkCore;
 
 namespace DevFlow.Services;
@@ -44,7 +45,7 @@ public class ProjectService : IProjectService
         {
             Name = createProjectDto.Name.Trim(),
             Description = createProjectDto.Description?.Trim(),
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = DateTimeHelper.Now,
             UpdatedAt = null
         };
 
@@ -129,7 +130,7 @@ public class ProjectService : IProjectService
             // Update project properties
             project.Name = updateProjectDto.Name.Trim();
             project.Description = updateProjectDto.Description?.Trim();
-            project.UpdatedAt = DateTime.UtcNow;
+            project.UpdatedAt = DateTimeHelper.Now;
 
             await _context.SaveChangesAsync();
 
