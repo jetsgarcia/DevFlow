@@ -22,4 +22,12 @@ public interface ISessionService
     /// <returns>The updated session details</returns>
     /// <exception cref="InvalidOperationException">Thrown when the session is not found or already ended</exception>
     Task<SessionDto> EndSessionAsync(EndSessionDto endSessionDto);
+
+    /// <summary>
+    /// Retrieves all sessions for a specific project, ordered by start time (most recent first)
+    /// </summary>
+    /// <param name="projectId">The ID of the project to retrieve sessions for</param>
+    /// <returns>A list of all sessions associated with the project</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the project is not found</exception>
+    Task<List<SessionDto>> GetProjectSessionsAsync(int projectId);
 }

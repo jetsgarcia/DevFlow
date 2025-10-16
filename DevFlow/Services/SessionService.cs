@@ -136,6 +136,36 @@ public class SessionService : ISessionService
         }
     }
 
+    /// <inheritdoc />
+    public async Task<List<SessionDto>> GetProjectSessionsAsync(int projectId)
+    {
+        _logger.LogInformation("Retrieving all sessions for ProjectId: {ProjectId}", projectId);
+
+        // Verify that the project exists
+        var project = await _context.Projects
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+
+        if (project == null)
+        {
+            _logger.LogWarning("Get sessions failed: Project with ID {ProjectId} not found", projectId);
+            throw new InvalidOperationException($"Project with ID {projectId} not found.");
+        }
+
+        // Retrieve all sessions for the project, ordered by start time (most recent first)
+        var sessions = await _context.Sessions
+            .Where(s => s.ProjectId == projectId)
+            .OrderByDescending(s => s.StartTime)
+            .ToListAsync();
+
+        _logger.LogInformation(
+            "Successfully retrieved {Count} session(s) for ProjectId: {ProjectId}",
+            sessions.Count,
+            projectId);
+
+        // Map to DTOs
+        return sessions.Select(s => MapToSessionDto(s, project.Name)).ToList();
+    }
+
     /// <summary>
     /// Maps a Session entity to SessionDto
     /// </summary>

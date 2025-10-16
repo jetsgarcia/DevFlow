@@ -40,6 +40,16 @@ public static class SessionEndpoints
             .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
             .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
             .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
+
+        // GET /api/sessions/project/{projectId} - Get all sessions for a project
+        group.MapGet("/project/{projectId:int}", GetProjectSessions)
+            .WithName("GetProjectSessions")
+            .WithSummary("Get all sessions for a project")
+            .WithDescription("Retrieves all previous sessions for a specific project, ordered by start time (most recent first).")
+            .Produces<ApiResponse<List<SessionDto>>>(StatusCodes.Status200OK)
+            .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
+            .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
+            .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
     }
 
     /// <summary>
@@ -142,6 +152,53 @@ public static class SessionEndpoints
             logger.LogError(ex, "Unexpected error occurred while ending session");
             return Results.Problem(
                 detail: "An unexpected error occurred while ending the session.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Retrieves all sessions for a specific project
+    /// </summary>
+    private static async Task<IResult> GetProjectSessions(
+        [FromRoute] int projectId,
+        [FromServices] ISessionService sessionService,
+        [FromServices] ILogger<Program> logger)
+    {
+        try
+        {
+            // Validate the project ID
+            if (projectId <= 0)
+            {
+                return Results.BadRequest(ApiResponse<object>.ErrorResponse(
+                    "Invalid project ID. ProjectId must be a positive integer."));
+            }
+
+            var sessions = await sessionService.GetProjectSessionsAsync(projectId);
+
+            logger.LogInformation(
+                "Successfully retrieved {Count} session(s) for ProjectId={ProjectId}",
+                sessions.Count,
+                projectId);
+
+            return Results.Ok(ApiResponse<List<SessionDto>>.SuccessResponse(
+                sessions,
+                $"Retrieved {sessions.Count} session(s) for the project."));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            logger.LogWarning("Get sessions failed - project not found: {Message}", ex.Message);
+            return Results.NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogError(ex, "Error retrieving project sessions");
+            return Results.BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error occurred while retrieving project sessions");
+            return Results.Problem(
+                detail: "An unexpected error occurred while retrieving project sessions.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
