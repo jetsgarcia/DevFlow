@@ -84,6 +84,16 @@ public static class SessionEndpoints
             .WithDescription("Retrieves detailed statistics for all sessions including averages, totals, longest/shortest sessions, active sessions count, date ranges, and number of projects tracked.")
             .Produces<ApiResponse<SessionStatisticsDto>>(StatusCodes.Status200OK)
             .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
+
+        // GET /api/sessions/statistics/project/{projectId} - Get statistics for a specific project
+        group.MapGet("/statistics/project/{projectId:int}", GetProjectStatistics)
+            .WithName("GetProjectStatistics")
+            .WithSummary("Get comprehensive session statistics for a specific project")
+            .WithDescription("Retrieves detailed statistics for a specific project including averages, totals, longest/shortest sessions, active session status, and date ranges.")
+            .Produces<ApiResponse<ProjectSessionStatisticsDto>>(StatusCodes.Status200OK)
+            .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
+            .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
+            .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
     }
 
     /// <summary>
@@ -392,6 +402,58 @@ public static class SessionEndpoints
             logger.LogError(ex, "Unexpected error occurred while retrieving session statistics");
             return Results.Problem(
                 detail: "An unexpected error occurred while retrieving session statistics.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Gets comprehensive session statistics for a specific project
+    /// </summary>
+    private static async Task<IResult> GetProjectStatistics(
+        [FromRoute] int projectId,
+        [FromServices] ISessionService sessionService,
+        [FromServices] ILogger<Program> logger)
+    {
+        try
+        {
+            // Validate the project ID
+            if (projectId <= 0)
+            {
+                return Results.BadRequest(ApiResponse<object>.ErrorResponse(
+                    "Invalid project ID. ProjectId must be a positive integer."));
+            }
+
+            var statistics = await sessionService.GetProjectStatisticsAsync(projectId);
+
+            logger.LogInformation(
+                "Successfully retrieved statistics for ProjectId: {ProjectId} - {TotalSessions} completed sessions, {Average} seconds average",
+                projectId,
+                statistics.TotalCompletedSessions,
+                statistics.AverageDurationSeconds);
+
+            var message = statistics.TotalCompletedSessions > 0
+                ? $"Statistics calculated from {statistics.TotalCompletedSessions} completed session(s) for project '{statistics.ProjectName}'."
+                : $"No completed sessions found for project '{statistics.ProjectName}' yet.";
+
+            return Results.Ok(ApiResponse<ProjectSessionStatisticsDto>.SuccessResponse(
+                statistics,
+                message));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            logger.LogWarning("Get project statistics failed - project not found: {Message}", ex.Message);
+            return Results.NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogError(ex, "Error retrieving project statistics");
+            return Results.BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error occurred while retrieving project statistics");
+            return Results.Problem(
+                detail: "An unexpected error occurred while retrieving project statistics.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }

@@ -346,6 +346,88 @@ public class SessionService : ISessionService
         };
     }
 
+    /// <inheritdoc />
+    public async Task<ProjectSessionStatisticsDto> GetProjectStatisticsAsync(int projectId)
+    {
+        _logger.LogInformation("Retrieving session statistics for ProjectId: {ProjectId}", projectId);
+
+        // Verify that the project exists and get project name
+        var project = await _context.Projects
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+
+        if (project == null)
+        {
+            _logger.LogWarning("Get project statistics failed: Project with ID {ProjectId} not found", projectId);
+            throw new InvalidOperationException($"Project with ID {projectId} not found.");
+        }
+
+        // Retrieve all sessions for this project
+        var allSessions = await _context.Sessions
+            .Where(s => s.ProjectId == projectId)
+            .ToListAsync();
+
+        var completedSessions = allSessions
+            .Where(s => !s.IsActive && s.DurationSeconds.HasValue)
+            .ToList();
+
+        var hasActiveSession = allSessions.Any(s => s.IsActive);
+        var totalSessions = allSessions.Count;
+        var totalCompletedSessions = completedSessions.Count;
+
+        // If no completed sessions, return zero statistics
+        if (totalCompletedSessions == 0)
+        {
+            _logger.LogInformation(
+                "No completed sessions found for ProjectId: {ProjectId}. Total sessions: {TotalSessions}",
+                projectId,
+                totalSessions);
+            
+            return new ProjectSessionStatisticsDto
+            {
+                ProjectId = projectId,
+                ProjectName = project.Name,
+                AverageDurationSeconds = 0,
+                TotalCompletedSessions = 0,
+                TotalSeconds = 0,
+                LongestSessionSeconds = null,
+                ShortestSessionSeconds = null,
+                HasActiveSession = hasActiveSession,
+                FirstSessionDate = totalSessions > 0 ? allSessions.Min(s => s.StartTime) : null,
+                LastSessionDate = totalSessions > 0 ? allSessions.Max(s => s.StartTime) : null,
+                TotalSessions = totalSessions
+            };
+        }
+
+        // Calculate statistics
+        var totalDurationSeconds = completedSessions.Sum(s => s.DurationSeconds!.Value);
+        var averageDurationSeconds = totalDurationSeconds / (double)totalCompletedSessions;
+        var longestSessionSeconds = completedSessions.Max(s => s.DurationSeconds!.Value);
+        var shortestSessionSeconds = completedSessions.Min(s => s.DurationSeconds!.Value);
+        var firstSessionDate = allSessions.Min(s => s.StartTime);
+        var lastSessionDate = allSessions.Max(s => s.StartTime);
+
+        _logger.LogInformation(
+            "Successfully calculated statistics for ProjectId: {ProjectId}. Total: {Total} completed sessions, Average: {Average} seconds",
+            projectId,
+            totalCompletedSessions,
+            (int)Math.Round(averageDurationSeconds));
+
+        return new ProjectSessionStatisticsDto
+        {
+            ProjectId = projectId,
+            ProjectName = project.Name,
+            AverageDurationSeconds = (int)Math.Round(averageDurationSeconds),
+            TotalCompletedSessions = totalCompletedSessions,
+            TotalSeconds = totalDurationSeconds,
+            LongestSessionSeconds = longestSessionSeconds,
+            ShortestSessionSeconds = shortestSessionSeconds,
+            HasActiveSession = hasActiveSession,
+            FirstSessionDate = firstSessionDate,
+            LastSessionDate = lastSessionDate,
+            TotalSessions = totalSessions
+        };
+    }
+
     /// <summary>
     /// Maps a Session entity to SessionDto
     /// </summary>

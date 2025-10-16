@@ -152,3 +152,64 @@ public class SessionStatisticsDto
     /// </summary>
     public int TotalProjectsWithSessions { get; set; }
 }
+
+/// <summary>
+/// DTO for comprehensive session statistics for a specific project
+/// </summary>
+public class ProjectSessionStatisticsDto
+{
+    /// <summary>
+    /// Project ID
+    /// </summary>
+    public int ProjectId { get; set; }
+
+    /// <summary>
+    /// Project name
+    /// </summary>
+    public string ProjectName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Average session duration in seconds for this project (no decimal)
+    /// </summary>
+    public int AverageDurationSeconds { get; set; }
+
+    /// <summary>
+    /// Total number of completed sessions for this project
+    /// </summary>
+    public int TotalCompletedSessions { get; set; }
+
+    /// <summary>
+    /// Total duration of all completed sessions in seconds for this project
+    /// </summary>
+    public int TotalSeconds { get; set; }
+
+    /// <summary>
+    /// Longest session duration in seconds for this project
+    /// </summary>
+    public int? LongestSessionSeconds { get; set; }
+
+    /// <summary>
+    /// Shortest session duration in seconds for this project
+    /// </summary>
+    public int? ShortestSessionSeconds { get; set; }
+
+    /// <summary>
+    /// Whether this project has an active session
+    /// </summary>
+    public bool HasActiveSession { get; set; }
+
+    /// <summary>
+    /// Date of the first session for this project
+    /// </summary>
+    public DateTime? FirstSessionDate { get; set; }
+
+    /// <summary>
+    /// Date of the most recent session for this project
+    /// </summary>
+    public DateTime? LastSessionDate { get; set; }
+
+    /// <summary>
+    /// Total number of sessions (including active) for this project
+    /// </summary>
+    public int TotalSessions { get; set; }
+}

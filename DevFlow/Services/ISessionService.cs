@@ -56,4 +56,12 @@ public interface ISessionService
     /// </summary>
     /// <returns>Detailed statistics including averages, totals, longest/shortest sessions, and more</returns>
     Task<SessionStatisticsDto> GetSessionStatisticsAsync();
+
+    /// <summary>
+    /// Retrieves comprehensive session statistics for a specific project
+    /// </summary>
+    /// <param name="projectId">The ID of the project to retrieve statistics for</param>
+    /// <returns>Detailed statistics for the project including averages, totals, longest/shortest sessions, and more</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the project is not found</exception>
+    Task<ProjectSessionStatisticsDto> GetProjectStatisticsAsync(int projectId);
 }
