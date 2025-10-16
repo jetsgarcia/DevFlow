@@ -88,6 +88,62 @@ public class ProjectService : IProjectService
         }
     }
 
+    /// <inheritdoc />
+    public async Task<ProjectDto> UpdateProjectAsync(int id, UpdateProjectDto updateProjectDto)
+    {
+        if (updateProjectDto == null)
+        {
+            throw new ArgumentNullException(nameof(updateProjectDto));
+        }
+
+        if (id <= 0)
+        {
+            throw new ArgumentException("Invalid project ID.", nameof(id));
+        }
+
+        _logger.LogInformation("Updating project with ID: {ProjectId}", id);
+
+        // Find the existing project
+        var project = await _context.Projects
+            .Include(p => p.Sessions)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (project == null)
+        {
+            _logger.LogWarning("Update failed: Project with ID {ProjectId} not found", id);
+            throw new InvalidOperationException($"Project with ID {id} not found.");
+        }
+
+        // Check if new name conflicts with another project
+        var existingProject = await _context.Projects
+            .FirstOrDefaultAsync(p => p.Name.ToLower() == updateProjectDto.Name.ToLower() && p.Id != id);
+
+        if (existingProject != null)
+        {
+            _logger.LogWarning("Update failed: Project with name {ProjectName} already exists", updateProjectDto.Name);
+            throw new InvalidOperationException($"A project with the name '{updateProjectDto.Name}' already exists.");
+        }
+
+        try
+        {
+            // Update project properties
+            project.Name = updateProjectDto.Name.Trim();
+            project.Description = updateProjectDto.Description?.Trim();
+            project.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully updated project with ID: {ProjectId}", project.Id);
+
+            return MapToProjectDtoWithSessions(project);
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database error occurred while updating project with ID: {ProjectId}", id);
+            throw new InvalidOperationException("An error occurred while updating the project. Please try again.", ex);
+        }
+    }
+
     /// <summary>
     /// Maps a Project entity to ProjectDto
     /// </summary>

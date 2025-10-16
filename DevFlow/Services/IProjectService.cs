@@ -19,4 +19,12 @@ public interface IProjectService
     /// </summary>
     /// <returns>A list of all projects with session statistics</returns>
     Task<IEnumerable<ProjectDto>> GetAllProjectsAsync();
+
+    /// <summary>
+    /// Updates an existing project's details
+    /// </summary>
+    /// <param name="id">The ID of the project to update</param>
+    /// <param name="updateProjectDto">The updated project details</param>
+    /// <returns>The updated project details</returns>
+    Task<ProjectDto> UpdateProjectAsync(int id, UpdateProjectDto updateProjectDto);
 }

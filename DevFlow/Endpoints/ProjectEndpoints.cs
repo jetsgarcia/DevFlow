@@ -36,6 +36,17 @@ public static class ProjectEndpoints
             .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
             .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
             .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
+
+        // PUT /api/projects/{id} - Update an existing project
+        group.MapPut("/{id}", UpdateProject)
+            .WithName("UpdateProject")
+            .WithSummary("Update an existing project")
+            .WithDescription("Updates the name and/or description of an existing project. Project names must be unique.")
+            .Produces<ApiResponse<ProjectDto>>(StatusCodes.Status200OK)
+            .Produces<ApiResponse<object>>(StatusCodes.Status400BadRequest)
+            .Produces<ApiResponse<object>>(StatusCodes.Status404NotFound)
+            .Produces<ApiResponse<object>>(StatusCodes.Status409Conflict)
+            .Produces<ApiResponse<object>>(StatusCodes.Status500InternalServerError);
     }
 
     /// <summary>
@@ -112,6 +123,64 @@ public static class ProjectEndpoints
             logger.LogError(ex, "Unexpected error occurred while creating project");
             return Results.Problem(
                 detail: "An unexpected error occurred while creating the project.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Updates an existing project
+    /// </summary>
+    private static async Task<IResult> UpdateProject(
+        [FromRoute] int id,
+        [FromBody] UpdateProjectDto updateProjectDto,
+        [FromServices] IProjectService projectService,
+        [FromServices] ILogger<Program> logger)
+    {
+        try
+        {
+            // Validate the model
+            if (string.IsNullOrWhiteSpace(updateProjectDto.Name))
+            {
+                return Results.BadRequest(ApiResponse<object>.ErrorResponse(
+                    "Project name is required and cannot be empty."));
+            }
+
+            // Validate ID
+            if (id <= 0)
+            {
+                return Results.BadRequest(ApiResponse<object>.ErrorResponse(
+                    "Invalid project ID."));
+            }
+
+            var project = await projectService.UpdateProjectAsync(id, updateProjectDto);
+
+            logger.LogInformation("Project updated successfully: {ProjectId} - {ProjectName}",
+                project.Id, project.Name);
+
+            return Results.Ok(ApiResponse<ProjectDto>.SuccessResponse(
+                project,
+                "Project updated successfully."));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            logger.LogWarning("Project update failed - not found: {Message}", ex.Message);
+            return Results.NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
+        {
+            logger.LogWarning("Project update conflict: {Message}", ex.Message);
+            return Results.Conflict(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogError(ex, "Error updating project");
+            return Results.BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error occurred while updating project");
+            return Results.Problem(
+                detail: "An unexpected error occurred while updating the project.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
